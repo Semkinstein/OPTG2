@@ -1,11 +1,13 @@
 var container;
-var camera, scene, renderer;
+var camera, scene, renderer, sceneOrtho, cameraOrtho;
 
 var N = 10;
 var mercuryDistance = 7; var mercurySpeed = 48;
 var venusDistance = 12; var venusSpeed = 35;
 var earthDistance = 18; var earthSpeed = 30;
 var planets = [];
+var planetnames = [];
+var planetinfo = [];
 var moon;
 var spotlight; 
 var clock = new THREE.Clock();
@@ -62,9 +64,16 @@ function init()
 {
     container = document.getElementById( 'container' );
     scene = new THREE.Scene();
+    sceneOrtho = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 4000 );
-    camera.position.set(0, 100, 0);
+    camera.position.set(40, 40, 40);
     camera.lookAt(new THREE.Vector3( 0, 0, 0));
+
+    cameraOrtho = new THREE.OrthographicCamera( - window.innerWidth / 2, window.innerWidth / 2, window.innerHeight / 2, -window.innerHeight / 2, 1, 10 );
+    cameraOrtho.position.z = 10;
+    scene.add(cameraOrtho);
+        
+    scene.fog = new THREE.Fog( 0x000000, 1500, 2100 );
 
     var ambient = new THREE.AmbientLight(0x202020);
     scene.add(ambient);
@@ -76,17 +85,26 @@ function init()
     renderer = new THREE.WebGLRenderer( { antialias: false } );
     renderer.setSize( window.innerWidth, window.innerHeight );
     renderer.setClearColor( 0x000000, 1);
+    renderer.autoClear = false;
 
-    container.appendChild( renderer.domElement );
     container.appendChild( renderer.domElement );
     window.addEventListener( 'resize', onWindowResize, false );
     
     addCosmicBodies();
     drawOrbit();
+
+    //addSprite("pics/EarthName.png", 0.5, 0.5, 5, 5, 10, 15);
+    planetinfo.push(addSprite("pics/merc.PNG", 0.0, 1.0, 512, 256, -window.innerWidth/2, window.innerHeight/2));
+    planetinfo.push(addSprite("pics/venu.PNG", 0.0, 1.0, 512, 256, -window.innerWidth/2, window.innerHeight/2));
+    planetinfo.push(addSprite("pics/earth.PNG", 0.0, 1.0, 512, 256, -window.innerWidth/2, window.innerHeight/2));
+    hideInfo();
     render();
 }
 
-
+function hideInfo(){
+    for(var i = 0; i < planetinfo.length; i++)
+        planetinfo[i].visible = false;
+}
 
 function addCosmicBodies(){
     var stars = new CosmicObject("Stars", new THREE.Vector3(0,0,0), "pics/stars_texture.jpg", "0", 100);
@@ -94,9 +112,16 @@ function addCosmicBodies(){
     scene.add(stars.sphere);
 
     planets.push(new CosmicObject("Sun", new THREE.Vector3(0,0,0), "pics/sunmap.jpg", "0", 5)); 
+    
     planets.push(new Planet("Mercury", new THREE.Vector3(mercuryDistance,0,0), "pics/mercurymap.jpg", "pics/mercurybump.jpg", 0.6, mercurySpeed, mercuryDistance));
+    planetnames.push( makeTextSprite(" Меркурий ") );
+
     planets.push(new Planet("Venus", new THREE.Vector3(venusDistance,0,0), "pics/venusmap.jpg", "pics/venusbump.jpg", 1.1, venusSpeed, venusDistance));
+    planetnames.push( makeTextSprite(" Венера ") );
+
     planets.push(new Planet("Earth", new THREE.Vector3(earthDistance,0,0), "pics/earthmap1k.jpg", "pics/earthbump1k.jpg", 2, earthSpeed, earthDistance));
+    planetnames.push( makeTextSprite(" Земля ") );
+
 
     for (var i = 0; i < planets.length; i++){
         //scene.add(planets[i].createObject());
@@ -108,6 +133,69 @@ function addCosmicBodies(){
     moon.createObject();
     scene.add(moon.sphere);
     
+}
+
+function addSprite(name, centerX, centerY, scaleX, scaleY, posX, posY)
+{
+    var texture = new THREE.TextureLoader().load(name);
+    var material = new THREE.SpriteMaterial( { map: texture } );
+    sprite = new THREE.Sprite(material);
+    sprite.center.set(centerX, centerY);
+    sprite.scale.set(scaleX, scaleY, 1);
+    sprite.position.set(posX, posY, 1);
+    sceneOrtho.add(sprite);
+    return sprite;
+}
+
+function makeTextSprite( message, parameters )
+{
+	if ( parameters === undefined ) parameters = {};
+	
+	var fontface = parameters.hasOwnProperty("fontface") ? 
+		parameters["fontface"] : "Arial";
+	
+	var fontsize = parameters.hasOwnProperty("fontsize") ? 
+		parameters["fontsize"] : 40;
+	
+	var borderThickness = parameters.hasOwnProperty("borderThickness") ? 
+        parameters["borderThickness"] : 5;
+	
+	var borderColor = parameters.hasOwnProperty("borderColor") ?
+		parameters["borderColor"] : { r:0, g:0, b:0, a:1.0 };
+	
+	var backgroundColor = parameters.hasOwnProperty("backgroundColor") ?
+		parameters["backgroundColor"] : { r:0, g:0, b:0, a:1.0 };
+
+	//var spriteAlignment = THREE.SpriteAlignment.topLeft;
+		
+	var canvas = document.createElement('canvas');
+	var context = canvas.getContext('2d');
+	context.font = "Bold " + fontsize + "px " + fontface;
+    
+	// background color
+	context.fillStyle   = "rgba(" + backgroundColor.r + "," + backgroundColor.g + "," + backgroundColor.b + "," + backgroundColor.a + ")";
+	// border color
+	context.strokeStyle = "rgba(" + borderColor.r + "," + borderColor.g + "," + borderColor.b + "," + borderColor.a + ")";
+
+	context.lineWidth = borderThickness;
+	
+	// 1.4 is extra height factor for text below baseline: g,j,p,q.
+	
+	// text color
+	context.fillStyle = "rgba(255, 255, 255, 1.0)";
+
+	context.fillText( message, borderThickness, fontsize + borderThickness);
+	
+	// canvas contents will be used for a texture
+	var texture = new THREE.Texture(canvas) 
+	texture.needsUpdate = true;
+
+	var spriteMaterial = new THREE.SpriteMaterial( { map: texture } );
+	var sprite = new THREE.Sprite( spriteMaterial );
+    sprite.scale.set(10, 5, 1.0);
+    sprite.position.set(10, 10, 1);
+    scene.add(sprite);
+	return sprite;	
 }
 
 function drawOrbit(){
@@ -132,19 +220,32 @@ function drawOrbit(){
 
 function onWindowResize()
 {
- camera.aspect = window.innerWidth / window.innerHeight;
- camera.updateProjectionMatrix();
- renderer.setSize( window.innerWidth, window.innerHeight );
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize( window.innerWidth, window.innerHeight );
 }
 
 function cameraReset(){
     cameraFocus.fill(false);
     cameraFocus[0] = true;
-    camera.position.set(0, 100, 0);
+    camera.position.set(40, 40, 40);
     camera.lookAt(new THREE.Vector3( 0, 0, 0));
+    namesVisibility(true);
+    hideInfo();
+}
+
+function namesVisibility( visibility ){
+    for(var i = 0; i<planetnames.length; i++)
+        planetnames[i].visible = visibility;
 }
 
 function cameraMovement(planetNumber){
+    namesVisibility(false);
+    hideInfo();
+    if(planetNumber < 4){
+        planetinfo[planetNumber - 1].visible = true;
+    }
+
     cameraFocus.fill(false);
     cameraFocus[planetNumber] = true;
     var currentPlanet; 
@@ -171,6 +272,7 @@ var cameraRotation = 0;
 var t = 0;
 var deg = 0.1;
 var cameraFocus = [];
+
 function animate()
 {
     delta = clock.getDelta(); 
@@ -200,6 +302,15 @@ function animate()
         m.multiplyMatrices( m, m1 ); 
         planets[i].sphere.matrix = m; 
         planets[i].sphere.matrixAutoUpdate = false; 
+
+        var planetPos = new THREE.Vector3();
+        planetPos.setFromMatrixPosition(planets[i].sphere.matrixWorld);
+        planetPos.y += 2;
+        planetPos.z -= 3;
+        planetnames[i-1].position.copy(planetPos);
+        //planetnames[i-1].localToWorld()
+        // planetnames[i-1].matrix = m;
+        // planetnames[i-1].updateMatrix;
     }
 
     //*
@@ -231,9 +342,13 @@ function animate()
     moon.sphere.position.copy(new THREE.Vector3(x, 0 ,z));
         //*/
 }
+
 function render()
 {
- renderer.render( scene, camera );
+    renderer.clear();
+    renderer.render( scene, camera );
+    renderer.clearDepth();
+    renderer.render( sceneOrtho, cameraOrtho );
 }
 
 
